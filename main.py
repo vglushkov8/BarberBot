@@ -1,11 +1,21 @@
 import telebot
 from telebot.types import (
-    ReplyKeyboardRemove, Message, ReplyKeyboardMarkup, KeyboardButton
+    Message,
+    KeyboardButton,
+    ReplyKeyboardRemove,
+    ReplyKeyboardMarkup,
 )
 from datetime import datetime
 import sqlite3
 from settings import BARBER_USERNAME, DB_NAME, BOT_API_KEY
-from sql import SLOTS_CREATE_TABLE, SELECT_ALL_SLOTS, CREATE_SLOT, BARBER_CREATE_TABLE, CREATE_BARBER_CHAT_ID, SELECT_BARBER_CHAT_ID
+from sql import (
+    CREATE_SLOT,
+    SELECT_ALL_SLOTS,
+    SLOTS_CREATE_TABLE,
+    BARBER_CREATE_TABLE,
+    CREATE_BARBER_CHAT_ID,
+    SELECT_BARBER_CHAT_ID,
+)
 from utils import chosen_slot_to_date, get_all_slots
 
 
