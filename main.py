@@ -37,7 +37,7 @@ def handle_start(message: Message):
         if barber_chat_id is None:
             bot.send_message(
                 message.chat.id,
-                'В системе не зарегистрировано ни одного барбера, попробуйте позже',
+                'В системе не зарегистрировано ни одного сотрудника, попробуйте позже',
                 reply_markup=ReplyKeyboardRemove()
             )
             return
@@ -49,7 +49,7 @@ def handle_start(message: Message):
             if slot not in busy_slots:
                 available_slots.append(slot)
         user_process_data[user_name]['available_slots'] = sorted(available_slots)
-        bot.send_message(message.chat.id, 'Здравствуйте!', reply_markup=ReplyKeyboardRemove())
+
         if not available_slots:
             bot.send_message(message.chat.id, 'Нет свободных слотов, попробуйте позже')
             return
@@ -71,9 +71,8 @@ def handle_start(message: Message):
 
         bot.send_message(message.chat.id, 'Здравствуйте!', reply_markup=ReplyKeyboardRemove())
         bot.send_message(message.chat.id, 'Выберите день для записи', reply_markup=keyboard_with_full_date)
-        bot.register_next_step_handler(message, day_choose)
+        bot.register_next_step_handler(message, time_choose_step)
     else:
-        # в этом случае логика для барбера
         if barber_chat_id != message.chat.id:
             barber_chat_id = message.chat.id
             try:
@@ -85,7 +84,7 @@ def handle_start(message: Message):
         bot.send_message(barber_chat_id, 'Добрый день, готов принимать записи')
 
 
-def day_choose(message):
+def time_choose_step(message):
     user_name = message.from_user.username
     chosen_slot = chosen_slot_to_date(message.text)
     user_process_data[user_name]['chosen_slot'] = chosen_slot
@@ -99,10 +98,10 @@ def day_choose(message):
             keyboard.add(KeyboardButton(text='{}:{}0'.format(available_slot.hour, available_slot.minute)))
 
     bot.send_message(message.chat.id, 'Выберите время', reply_markup=keyboard)
-    bot.register_next_step_handler(message, time_choose)
+    bot.register_next_step_handler(message, final_step)
 
 
-def time_choose(message):
+def final_step(message):
     global barber_chat_id
     user_name = message.from_user.username
     splitted_time = message.text.split(':')  # [11, 00]
@@ -121,7 +120,8 @@ def time_choose(message):
             chosen_slot_str = chosen_slot.strftime("%d.%m.%Y,%H:%M")
             db_connection.execute(CREATE_SLOT.format(time=chosen_slot_str, username=user_name))
             db_connection.commit()
-        except Exception:
+        except Exception as e:
+            print("[ERROR] Ошибка при создании записи: {}".format(str(e)))
             bot.send_message(
                 message.chat.id, 'Ошибка при создании записи, попробуйте снова', reply_markup=ReplyKeyboardRemove()
             )
@@ -136,19 +136,19 @@ def time_choose(message):
 
 if __name__ == '__main__':
     db_connection = sqlite3.connect(DB_NAME, check_same_thread=False)
-    for db_to_create in (SLOTS_CREATE_TABLE, BARBER_CREATE_TABLE):
+    for sql_create_table in [SLOTS_CREATE_TABLE, BARBER_CREATE_TABLE]:
         try:
-            db_connection.execute(db_to_create)
-        except Exception as e:
+            db_connection.execute(sql_create_table)
+        except Exception:
             pass
 
     for row in db_connection.execute(SELECT_ALL_SLOTS):
         # в row лежит, например: (13.03.2023,15:00, ), поэтому нужно достать row[0]
         busy_slots.append(datetime.strptime(row[0], '%d.%m.%Y,%H:%M'))
 
-    barber_chat_id_result = db_connection.execute(SELECT_BARBER_CHAT_ID).fetchone()
-    if barber_chat_id_result:
-        barber_chat_id = barber_chat_id_result[0]
+    for row in db_connection.execute(SELECT_BARBER_CHAT_ID):
+        barber_chat_id = row[0]
+        break
 
     print("Starting bot...")
     bot.infinity_polling()
